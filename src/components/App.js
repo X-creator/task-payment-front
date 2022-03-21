@@ -233,13 +233,10 @@ const App = () => {
           >
             Pay
           </Button>
-
         </Box>
       </Paper>
     </Container>
-
-  )
-    ;
+  );
 };
 
 export default App;
