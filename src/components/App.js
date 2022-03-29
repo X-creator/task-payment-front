@@ -1,82 +1,64 @@
 import { useEffect, useState } from "react";
-import useValidateInput from "../hooks/useValidateInput";
+import MyTextField from "./MyTextField";
+import Notification from "./Notification";
+import useForm from "../hooks/useForm";
+import useDataFetch from "../hooks/useDataFetch";
+import { formHasError, formIsFulfilled } from "../helpers/validateForm";
 import { formatAmount, formatCard, formatCvv, formatExpiration } from "../helpers/formatInputs";
 import { validateAmount, validateCard, validateCvv, validateExpiration } from "../helpers/validateInputs";
-import { formHasError, formIsFulfilled } from "../helpers/validateForm";
 import {
   Box,
-  InputAdornment,
-  Typography,
+  Paper,
+  Button,
+  Divider,
+  MenuItem,
   Container,
   TextField,
-  Button,
-  MenuItem,
-  Paper
+  Typography,
+  FormHelperText,
+  InputAdornment
 } from "@mui/material";
 
 
 const currentYear = new Date().getFullYear();
 
+const config = {
+  cvv: [formatCvv, validateCvv],
+  amount: [formatAmount, validateAmount],
+  cardNumber: [formatCard, validateCard],
+  expirationMonth: [formatExpiration, validateExpiration],
+  expirationYear: [formatExpiration, validateExpiration]
+};
+
+const setOption = (data) => ({
+  method: "POST",
+  body: JSON.stringify(data),
+  headers: {
+    "Content-Type": "application/json"
+  }
+});
 
 const App = () => {
   const [isDisabled, setIsDisabled] = useState(true);
-  const [data, setData] = useState(null);
 
   const {
-    value: cardValue,
-    error: cardError,
-    onChange: cardOnChange,
-    onBlur: cardOnBlur,
-    onFocus: cardOnFocus,
-    reset: cardReset
-  } = useValidateInput(formatCard, validateCard);
+    inputs: { cvv, amount, cardNumber, expirationMonth, expirationYear },
+    reset,
+    ...eventHandlers
+  } = useForm(config);
 
-  const {
-    value: expirationMonthValue,
-    error: expirationMonthError,
-    onChange: expirationMonthOnChange,
-    onBlur: expirationMonthOnBlur,
-    onFocus: expirationMonthOnFocus,
-    reset: expirationMonthReset
-  } = useValidateInput(formatExpiration, validateExpiration);
 
-  const {
-    value: expirationYearValue,
-    error: expirationYearError,
-    onChange: expirationYearOnChange,
-    onBlur: expirationYearOnBlur,
-    onFocus: expirationYearOnFocus,
-    reset: expirationYearReset
-  } = useValidateInput(formatExpiration, validateExpiration);
+  const [{ isLoading, isError, responseData }, setRequestData] = useDataFetch("http://localhost:5000/", setOption);
 
-  const {
-    value: cvvValue,
-    error: cvvError,
-    onChange: cvvOnChange,
-    onBlur: cvvOnBlur,
-    onFocus: cvvOnFocus,
-    reset: cvvReset
-  } = useValidateInput(formatCvv, validateCvv);
 
-  const {
-    value: amountValue,
-    error: amountError,
-    onChange: amountOnChange,
-    onBlur: amountOnBlur,
-    onFocus: amountOnFocus,
-    reset: amountReset
-  } = useValidateInput(formatAmount, validateAmount);
+  const keyDownHandler = (e) => {
+    if (e.repeat) e.preventDefault();
+  };
 
-  const fieldsValue = [cardValue, expirationMonthValue, expirationYearValue, cvvValue, amountValue];
-  const fieldsError = [cardError, expirationMonthError, expirationYearError, cvvError, amountError];
-  const resetForm = [cardReset, expirationMonthReset, expirationYearReset, cvvReset, amountReset];
-
-  const handleSubmit = (event) => {
+  const submitHandler = (event) => {
     event.preventDefault();
-
     const formData = Object.fromEntries(new FormData(event.target).entries());
-
-    const data = {
+    const formattedData = {
       amount: formData.amount.replace(/,/g, ""),
       cardNumber: formData.cardNumber.replace(/\s/g, ""),
       cvv: formData.cvv,
@@ -85,50 +67,31 @@ const App = () => {
         year: formData.expirationYear
       }
     };
-    setData(data);
-    resetForm.forEach(f => f());
+    setRequestData(formattedData);
+    reset();
   };
 
-  useEffect(() => {
-    if (data) {
-      const sendDataHandler = async () => {
-        const response = await fetch("http://localhost:5000/", {
-          method: "POST",
-          body: JSON.stringify(data),
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
-        const responseData = await response.json();
-        console.log(responseData);
-      };
-      sendDataHandler();
-    }
-  }, [data]);
-
+  const fieldsValue = [cardNumber.value, expirationMonth.value, expirationYear.value, cvv.value, amount.value];
+  const fieldsError = [cardNumber.error, expirationMonth.error, expirationYear.error, cvv.error, amount.error];
 
   useEffect(() => {
-    if (formIsFulfilled(fieldsValue) && !formHasError(fieldsError)) {
-      setIsDisabled(false);
-    } else {
-      setIsDisabled(true);
-    }
+    setIsDisabled(
+      !formIsFulfilled(fieldsValue)
+      || formHasError(fieldsError));
   }, [...fieldsValue, ...fieldsError]);
+
 
   return (
     <Container component="main" maxWidth="xs">
-      <Paper sx={{
-        mt: 5,
-        p: 3
-      }}>
-
+      <Paper sx={{ mt: 5, p: 3 }}>
         <Typography component="h1" variant="h4" sx={{
           textAlign: "center",
+          color: "darkslategrey",
           mb: 2
         }}>
           Payment
         </Typography>
-        <Box component="form" onSubmit={handleSubmit} noValidate sx={{
+        <Box component="form" onSubmit={submitHandler} noValidate sx={{
           mt: 1,
           display: "flex",
           flexDirection: "column",
@@ -137,92 +100,79 @@ const App = () => {
         }}>
           <TextField
             required
-            error={!!cardError}
-            helperText={cardError}
+            error={!!cardNumber.error}
+            helperText={cardNumber.error}
             fullWidth
             label="Card Number"
             name="cardNumber"
             autoComplete="cc-number"
             autoFocus
-            value={cardValue}
-            onChange={cardOnChange}
-            onBlur={cardOnBlur}
-            onFocus={cardOnFocus}
+            onKeyDown={keyDownHandler}
+            value={cardNumber.value}
+            {...eventHandlers}
           />
-          <Box sx={{
-            width: "100%",
-            display: "flex",
-            justifyContents: "center",
-            alignItems: "center"
-          }}>
-            <TextField
-              sx={{ mr: 3, minWidth: 140 }}
+          <Box sx={{ width: "100%", display: "flex", justifyContent: "space-between" }}>
+            <MyTextField
+              sx={{ maxWidth: 130 }}
               required
-              error={!!expirationMonthError}
-              helperText={expirationMonthError}
+              error={!!expirationMonth.error}
               select
+              fullWidth
               name="expirationMonth"
               label="Exp. month"
               autoComplete="cc-exp-month"
-              value={expirationMonthValue}
-              onChange={expirationMonthOnChange}
-              onBlur={expirationMonthOnBlur}
-              onFocus={expirationMonthOnFocus}
+              value={expirationMonth.value}
+              {...eventHandlers}
             >
               {Array.from({ length: 12 }, (_, i) => String(i + 1))
                 .map((i) =>
                   <MenuItem key={i} value={i}>{i.padStart(2, "0")}</MenuItem>
                 )}
-            </TextField>
-
-            <TextField
+            </MyTextField>
+            <Divider orientation="vertical" variant="middle" flexItem sx={{ mx: 2 }} />
+            <MyTextField
+              sx={{ maxWidth: 160 }}
               select
               required
-              error={!!expirationYearError}
-              helperText={expirationYearError}
+              error={!!expirationYear.error}
               fullWidth
               name="expirationYear"
               label="Exp. Year"
               autoComplete="cc-exp-year"
-              value={expirationYearValue}
-              onChange={expirationYearOnChange}
-              onBlur={expirationYearOnBlur}
-              onFocus={expirationYearOnFocus}
+              value={expirationYear.value}
+              {...eventHandlers}
             >
               {Array.from({ length: 10 }, (_, i) => String(currentYear + i))
                 .map((i) =>
                   <MenuItem key={i} value={i}>{i}</MenuItem>
                 )}
-            </TextField>
+            </MyTextField>
           </Box>
-
+          <FormHelperText error>{expirationMonth.error || expirationYear.error}</FormHelperText>
           <TextField
             sx={{ maxWidth: 100 }}
             required
-            error={!!cvvError}
-            helperText={cvvError}
+            error={!!cvv.error}
             fullWidth
             name="cvv"
             label="CVV"
             autoComplete="cc-csc"
-            value={cvvValue}
-            onChange={cvvOnChange}
-            onBlur={cvvOnBlur}
-            onFocus={cvvOnFocus}
+            value={cvv.value}
+            onKeyDown={keyDownHandler}
+            {...eventHandlers}
           />
+          <FormHelperText error>{cvv.error}</FormHelperText>
           <TextField
             required
-            error={!!amountError}
-            helperText={amountError}
+            error={!!amount.error}
+            helperText={amount.error}
             fullWidth
             name="amount"
             label="Amount"
             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-            autoComplete="cc-csc"
-            value={amountValue}
-            onChange={amountOnChange}
-            onBlur={amountOnBlur}
-            onFocus={amountOnFocus}
+            value={amount.value}
+            onKeyDown={keyDownHandler}
+            {...eventHandlers}
           />
           <Button
             sx={{ mt: 3, mb: 2, height: 46 }}
@@ -235,6 +185,7 @@ const App = () => {
           </Button>
         </Box>
       </Paper>
+      <Notification isLoading={isLoading} isError={isError} isSuccess={responseData} />
     </Container>
   );
 };
