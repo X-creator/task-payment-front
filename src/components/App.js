@@ -8,26 +8,41 @@ import { formatAmount, formatCard, formatCvv, formatExpiration } from "../helper
 import { validateAmount, validateCard, validateCvv, validateExpiration } from "../helpers/validateInputs";
 import {
   Box,
-  Paper,
   Button,
-  Divider,
-  MenuItem,
   Container,
-  TextField,
-  Typography,
+  Divider,
   FormHelperText,
-  InputAdornment
+  InputAdornment,
+  MenuItem,
+  Paper,
+  TextField,
+  Typography
 } from "@mui/material";
 
 
 const currentYear = new Date().getFullYear();
 
 const config = {
-  cvv: [formatCvv, validateCvv],
-  amount: [formatAmount, validateAmount],
-  cardNumber: [formatCard, validateCard],
-  expirationMonth: [formatExpiration, validateExpiration],
-  expirationYear: [formatExpiration, validateExpiration]
+  cvv: {
+    formatter: formatCvv,
+    validator: validateCvv
+  },
+  amount: {
+    formatter: formatAmount,
+    validator: validateAmount
+  },
+  cardNumber: {
+    formatter: formatCard,
+    validator: validateCard
+  },
+  expirationMonth: {
+    formatter: formatExpiration,
+    validator: validateExpiration
+  },
+  expirationYear: {
+    formatter: formatExpiration,
+    validator: validateExpiration
+  }
 };
 
 const setOption = (data) => ({
