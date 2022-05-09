@@ -1,88 +1,110 @@
 import { useReducer } from "react";
 
-let inputs = null;
-let savedConfig = null;
+let savedConfig = null,
+  isFulfilled = false;
 
 const init = (config) => {
   savedConfig = config;
-
-  inputs = resetForm();
-
-  return {
-    state: "RESET"
-  };
+  return resetForm();
 };
 
 const resetForm = () => {
   return Object.fromEntries(
     Object.entries(savedConfig)
-      .map(([inputName]) => [inputName, { value: "", error: null }])
-  );
+      .map(([inputName]) => (
+        [inputName,
+          {
+            value: "",
+            error: null,
+            isTouched: false,
+            isFocused: false
+          }
+        ]
+      )));
 };
 
-const formatInputValue = (inputValue, inputName) => {
+const calcFormError = (state) => {
+  return Object.entries(state)
+    .map(([_, { error, isTouched }]) => error || !isTouched)
+    .some((isFalsy) => Boolean(isFalsy));
+};
+
+const formatInputValue = (inputName, inputValue) => {
   const { formatter } = savedConfig[inputName];
-  const value = formatter(inputValue);
-  if (value !== null) {
-    inputs[inputName].value = value;
-  }
+  return formatter(inputValue);
 };
 
-const validateInputValue = (willCheck, inputName) => {
-  let error = null;
-  if (willCheck) {
-    const { validator } = savedConfig[inputName];
-    error = validator(inputs[inputName].value);
-  }
-  inputs[inputName].error = error;
+const validateInputValue = (inputName, inputValue) => {
+  const { validator } = savedConfig[inputName];
+  return validator(inputValue);
 };
 
 
-const formStateReducer = (_, { type, input }) => {
+const formStateReducer = (state, { type, inputName, inputValue }) => {
+  let errorMessage;
   switch (type) {
     case "CHANGE":
+      const formattedValue = formatInputValue(inputName, inputValue);
+      const value = formattedValue === null ? state[inputName].value : formattedValue;
+      errorMessage = validateInputValue(inputName, value);
+      return {
+        ...state,
+        [inputName]: {
+          value,
+          error: errorMessage,
+          isTouched: true,
+          isFocused: false
+        }
+      };
     case "BLUR":
     case "FOCUS":
-    case "RESET":
+      errorMessage = validateInputValue(inputName, inputValue);
       return {
-        state: type
+        ...state,
+        [inputName]: {
+          value: state[inputName].value,
+          error: errorMessage,
+          isTouched: true,
+          isFocused: type === "FOCUS"
+        }
       };
+    case "RESET":
+      return resetForm();
     default:
       throw new Error();
   }
 };
 
-
 const useForm = (config) => {
-  const [_, dispatch] = useReducer(formStateReducer, config, init);
+  const [inputs, dispatch] = useReducer(formStateReducer, config, init);
+  isFulfilled = !calcFormError(inputs);
 
   const onChange = ({ target: { name, value } }) => {
-    formatInputValue(value, name);
-    validateInputValue(true, name);
-    dispatch({ type: "CHANGE" });
+    dispatch({ type: "CHANGE", inputName: name, inputValue: value });
   };
 
-  const onBlur = ({ target: { name } }) => {
-    validateInputValue(true, name);
-    dispatch({ type: "BLUR" });
+  const onBlur = ({ target: { name, value } }) => {
+    dispatch({ type: "BLUR", inputName: name, inputValue: value });
   };
 
-  const onFocus = ({ target: { name } }) => {
-    validateInputValue(false, name);
-    dispatch({ type: "FOCUS" });
+  const onFocus = ({ target: { name, value } }) => {
+    dispatch({ type: "FOCUS", inputName: name, inputValue: value });
   };
 
   const reset = () => {
-    inputs = resetForm();
+    isFulfilled = false;
     dispatch({ type: "RESET" });
   };
 
   return {
     inputs,
-    onChange,
-    onBlur,
-    onFocus,
-    reset
+    isFulfilled,
+    actions: {
+      onChange,
+      onBlur,
+      onFocus,
+      reset
+    }
   };
 };
 

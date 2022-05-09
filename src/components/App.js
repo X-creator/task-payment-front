@@ -1,9 +1,7 @@
-import { useEffect, useState } from "react";
 import MyTextField from "./MyTextField";
 import Notification from "./Notification";
 import useForm from "../hooks/useForm";
 import useDataFetch from "../hooks/useDataFetch";
-import { formHasError, formIsFulfilled } from "../helpers/validateForm";
 import { formatAmount, formatCard, formatCvv, formatExpiration } from "../helpers/formatInputs";
 import { validateAmount, validateCard, validateCvv, validateExpiration } from "../helpers/validateInputs";
 import {
@@ -53,18 +51,17 @@ const setOption = (data) => ({
   }
 });
 
-const App = () => {
-  const [isDisabled, setIsDisabled] = useState(true);
 
+const App = () => {
+  const [{ isLoading, isError, responseData }, setRequestData] = useDataFetch("http://localhost:5000/", setOption);
   const {
     inputs: { cvv, amount, cardNumber, expirationMonth, expirationYear },
-    reset,
-    ...eventHandlers
+    isFulfilled,
+    actions: {
+      reset,
+      ...eventHandlers
+    }
   } = useForm(config);
-
-
-  const [{ isLoading, isError, responseData }, setRequestData] = useDataFetch("http://localhost:5000/", setOption);
-
 
   const keyDownHandler = (e) => {
     if (e.repeat) e.preventDefault();
@@ -86,16 +83,6 @@ const App = () => {
     reset();
   };
 
-  const fieldsValue = [cardNumber.value, expirationMonth.value, expirationYear.value, cvv.value, amount.value];
-  const fieldsError = [cardNumber.error, expirationMonth.error, expirationYear.error, cvv.error, amount.error];
-
-  useEffect(() => {
-    setIsDisabled(
-      !formIsFulfilled(fieldsValue)
-      || formHasError(fieldsError));
-  }, [...fieldsValue, ...fieldsError]);
-
-
   return (
     <Container component="main" maxWidth="xs">
       <Paper sx={{ mt: 5, p: 3 }}>
@@ -115,8 +102,8 @@ const App = () => {
         }}>
           <TextField
             required
-            error={!!cardNumber.error}
-            helperText={cardNumber.error}
+            error={!cardNumber.isFocused && !!cardNumber.error}
+            helperText={cardNumber.isFocused ? "" : cardNumber.error}
             fullWidth
             label="Card Number"
             name="cardNumber"
@@ -167,7 +154,7 @@ const App = () => {
           <TextField
             sx={{ maxWidth: 100 }}
             required
-            error={!!cvv.error}
+            error={!cvv.isFocused && !!cvv.error}
             fullWidth
             name="cvv"
             label="CVV"
@@ -176,11 +163,11 @@ const App = () => {
             onKeyDown={keyDownHandler}
             {...eventHandlers}
           />
-          <FormHelperText error>{cvv.error}</FormHelperText>
+          <FormHelperText error>{cvv.isFocused ? "" : cvv.error}</FormHelperText>
           <TextField
             required
-            error={!!amount.error}
-            helperText={amount.error}
+            error={!amount.isFocused && !!amount.error}
+            helperText={amount.isFocused ? "" : amount.error}
             fullWidth
             name="amount"
             label="Amount"
@@ -193,7 +180,7 @@ const App = () => {
             sx={{ mt: 3, mb: 2, height: 46 }}
             type="submit"
             fullWidth
-            disabled={isDisabled}
+            disabled={!isFulfilled}
             variant="contained"
           >
             Pay
